@@ -216,9 +216,6 @@ class BlockGame extends Phaser.Scene {
   }
 
   createMaze() {
-    // Asegurarse de que la escena esté activa antes de crear el laberinto
-    if (!this.scene || !this.scene.isActive()) return;
-
     // Crear grupo para el laberinto si no existe
     if (!this.mazeGroup) {
       this.mazeGroup = this.add.group();
@@ -255,11 +252,6 @@ class BlockGame extends Phaser.Scene {
           this.mazeGroup.add(goal);
         }
       }
-    }
-
-    // Si el personaje existe, asegurarse de que esté por encima del laberinto
-    if (this.character) {
-      this.character.setDepth(1);
     }
   }
 
@@ -609,50 +601,26 @@ class BlockGame extends Phaser.Scene {
     
     // Verificar si llegó a la meta
     if (this.maze[gridY][gridX] === 2) {
-      // Crear contenedor para el mensaje
-      const messageContainer = document.createElement('div');
-      messageContainer.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 30px;
-        border-radius: 15px;
-        text-align: center;
-        z-index: 9999;
-        animation: fadeIn 0.5s ease-in;
-        box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-      `;
+      // Detener la música si está reproduciéndose
+      if (this.bgMusic) {
+        this.bgMusic.stop();
+      }
 
-      // Crear contenido del mensaje
-      messageContainer.innerHTML = `
-        <div style="font-size: 40px; margin-bottom: 20px;">🎉</div>
-        <h2 style="color: #4CAF50; margin: 0 0 10px 0; font-size: 24px;">¡Felicidades!</h2>
-        <p style="margin: 0; font-size: 18px;">Has capturado el nuevo sensor</p>
-        <div style="margin-top: 20px; font-size: 16px;">Cambiando a la siguiente escena en 5 segundos...</div>
-      `;
-
-      // Añadir estilos de animación
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translate(-50%, -60%); }
-          to { opacity: 1; transform: translate(-50%, -50%); }
-        }
-      `;
-      document.head.appendChild(style);
-
-      // Añadir el mensaje al documento
-      document.body.appendChild(messageContainer);
+      // Mostrar alerta de éxito
+      alert('¡Felicidades! Has capturado el nuevo sensor');
       
-      // Esperar 5 segundos y cambiar a la siguiente escena
+      // Limpiar recursos de Blockly
+      if (this.blocklyWorkspace) {
+        this.blocklyWorkspace.dispose();
+      }
+      if (this.blocklyArea) {
+        this.blocklyArea.remove();
+      }
+
+      // Cambiar a la siguiente escena después de 5 segundos
       setTimeout(() => {
-        messageContainer.remove();
-        style.remove();
-        this.scene.start('ScenaRobot');
-      }, 5000);
+        this.scene.start('scenaRobot');  
+      }, 1000);
       
       return true;
     }
