@@ -145,7 +145,11 @@ class BlockGame extends Phaser.Scene {
     // Mejorar la calidad general de la cámara
     this.cameras.main.setZoom(1.0);
     this.cameras.main.setRoundPixels(false);
-    this.cameras.main.setAntialias(true);
+    
+    // Configurar suavizado de píxeles
+    if (this.game.renderer.type === Phaser.WEBGL) {
+      this.game.renderer.setTextureCrisp(false);
+    }
   }
 
   setupGameAreas() {
@@ -609,17 +613,29 @@ class BlockGame extends Phaser.Scene {
       // Mostrar alerta de éxito
       alert('¡Felicidades! Has capturado el nuevo sensor');
       
-      // Limpiar recursos de Blockly
+      // Limpiar recursos de Blockly y UI
       if (this.blocklyWorkspace) {
         this.blocklyWorkspace.dispose();
       }
       if (this.blocklyArea) {
         this.blocklyArea.remove();
       }
+      
+      // Eliminar los botones
+      if (this.buttonContainer) {
+        this.buttonContainer.remove();
+      }
+      if (this.runButton) {
+        this.runButton.remove();
+      }
+      const resetButton = document.querySelector('.reset-button');
+      if (resetButton) {
+        resetButton.remove();
+      }
 
-      // Cambiar a la siguiente escena después de 5 segundos
+      // Cambiar a la siguiente escena después de 100ms
       setTimeout(() => {
-        this.scene.start('scenaRobot');  
+        this.scene.start('scenaFinal');  
       }, 100);
       
       return true;
@@ -810,35 +826,32 @@ class BlockGame extends Phaser.Scene {
   }
 
   shutdown() {
-    // Detener música
+    // Limpiar recursos de Blockly
+    if (this.blocklyWorkspace) {
+      this.blocklyWorkspace.dispose();
+    }
+    if (this.blocklyArea) {
+      this.blocklyArea.remove();
+    }
+    
+    // Limpiar botones y contenedores
+    if (this.buttonContainer) {
+      this.buttonContainer.remove();
+    }
+    if (this.runButton) {
+      this.runButton.remove();
+    }
+    const resetButton = document.querySelector('.reset-button');
+    if (resetButton) {
+      resetButton.remove();
+    }
+
+    // Detener la música
     if (this.bgMusic) {
       this.bgMusic.stop();
     }
 
-    // Resto del código de shutdown...
-    this.cancelAllTimers();
-    this.executionCompleted = true;
-
-    if (this.tweens) {
-      this.tweens.killAll();
-    }
-
-    if (this.blocklyDiv) {
-      this.blocklyDiv.remove();
-      this.blocklyDiv = null;
-    }
-
-    if (this.buttonContainer) {
-      this.buttonContainer.remove();
-      this.buttonContainer = null;
-      this.runButton = null;
-    }
-
-    if (this.actionText) {
-      this.actionText.destroy();
-      this.actionText = null;
-    }
-
-    this.scale.off('resize', this.handleResize, this);
+    // Limpiar eventos
+    this.scale.off('resize', this.handleResize);
   }
 }

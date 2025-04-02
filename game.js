@@ -20,7 +20,7 @@ var config = {
   render: {
     pixelArt: true,
   },
-  scene: [BlockGame, scenaRobot],
+  scene: [scenaPrincipal,scenaVideo,scenaRobot,scenalab,BlockGame, scenaFinal],
 };
 
 var game = new Phaser.Game(config);
