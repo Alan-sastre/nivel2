@@ -154,10 +154,16 @@ class BlockGame extends Phaser.Scene {
     // Detectar orientación
     this.isLandscape = window.innerWidth > window.innerHeight;
     
-    // Forzar orientación horizontal en móviles
+    // Si es móvil y está en vertical, mostrar mensaje y retornar
     if (this.isMobile && !this.isLandscape) {
       this.showMessage('info', 'Rotación', 'Por favor, gira tu dispositivo horizontalmente');
       return;
+    }
+
+    // Limpiar mensaje de orientación si existe
+    const existingMessage = document.getElementById('game-message');
+    if (existingMessage && this.isMobile && this.isLandscape) {
+      existingMessage.remove();
     }
 
     const width = this.cameras.main.width;
@@ -184,8 +190,8 @@ class BlockGame extends Phaser.Scene {
     }
 
     // Posicionar elementos según el dispositivo
-    if (this.isMobile) {
-      // Móvil: Laberinto arriba, Blockly abajo
+    if (this.isMobile && this.isLandscape) {
+      // Móvil horizontal: Laberinto arriba, Blockly abajo
       this.blocklyArea.style.bottom = '0';
       this.blocklyArea.style.left = '0';
       this.blocklyArea.style.width = '100%';
@@ -195,7 +201,7 @@ class BlockGame extends Phaser.Scene {
       const gameAreaX = (width - mazeWidth) / 2;
       const gameAreaY = height * 0.05;
       this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
-    } else {
+    } else if (!this.isMobile) {
       // PC: Blockly a la izquierda, laberinto a la derecha
       this.blocklyArea.style.top = '0';
       this.blocklyArea.style.left = '0';
@@ -208,16 +214,17 @@ class BlockGame extends Phaser.Scene {
       this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
     }
 
-    // Recrear el laberinto
-    if (this.mazeGroup) {
-      this.mazeGroup.clear(true, true);
-      this.mazeGroup.destroy(true);
+    // Recrear el laberinto si la orientación es correcta
+    if (!this.isMobile || (this.isMobile && this.isLandscape)) {
+      if (this.mazeGroup) {
+        this.mazeGroup.clear(true, true);
+        this.mazeGroup.destroy(true);
+      }
+      this.createMaze();
     }
 
-    this.createMaze();
-
-    // Actualizar Blockly si existe
-    if (this.blocklyWorkspace) {
+    // Actualizar Blockly si existe y la orientación es correcta
+    if (this.blocklyWorkspace && (!this.isMobile || (this.isMobile && this.isLandscape))) {
       Blockly.svgResize(this.blocklyWorkspace);
     }
   }
@@ -324,11 +331,11 @@ class BlockGame extends Phaser.Scene {
       this.buttonContainer.style.padding = '5px';
       this.buttonContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
     } else {
-      // En PC, los botones van debajo del laberinto
-      this.buttonContainer.style.top = 'auto';
+      // En PC, los botones van centrados debajo del laberinto
+      const mazeRight = this.gameArea.x + this.gameArea.width;
+      this.buttonContainer.style.left = `${this.gameArea.x}px`;
+      this.buttonContainer.style.width = `${this.gameArea.width}px`;
       this.buttonContainer.style.bottom = '20px';
-      this.buttonContainer.style.right = '20px';
-      this.buttonContainer.style.width = 'auto';
     }
 
     document.body.appendChild(this.buttonContainer);
@@ -599,19 +606,21 @@ class BlockGame extends Phaser.Scene {
     // Actualizar layout
     this.setupGameAreas();
 
-    // Si el personaje existe, actualizar su posición
-    if (this.character) {
+    // Si el personaje existe y la orientación es correcta, actualizar su posición
+    if (this.character && (!this.isMobile || (this.isMobile && this.isLandscape))) {
       const currentGridX = Math.floor((this.character.x - this.gameArea.x) / this.cellSize);
       const currentGridY = Math.floor((this.character.y - this.gameArea.y) / this.cellSize);
       this.character.x = this.gameArea.x + (currentGridX * this.cellSize) + (this.cellSize / 2);
       this.character.y = this.gameArea.y + (currentGridY * this.cellSize) + (this.cellSize / 2);
     }
 
-    // Actualizar UI
-    this.setupUI();
+    // Actualizar UI solo si la orientación es correcta
+    if (!this.isMobile || (this.isMobile && this.isLandscape)) {
+      this.setupUI();
+    }
 
-    // Si cambió la orientación en móvil, mostrar mensaje
-    if (this.isMobile && wasLandscape !== this.isLandscape) {
+    // Mostrar/ocultar mensaje de orientación en móvil
+    if (this.isMobile) {
       if (!this.isLandscape) {
         this.showMessage('info', 'Rotación', 'Por favor, gira tu dispositivo horizontalmente');
       }
