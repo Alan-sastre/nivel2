@@ -154,6 +154,21 @@ class BlockGame extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
+    // Detectar orientación (solo para móvil)
+    if (this.isMobile) {
+      this.isLandscape = window.innerWidth > window.innerHeight;
+      
+      // Si está en vertical, ocultar los botones
+      if (this.buttonContainer) {
+        this.buttonContainer.style.display = this.isLandscape ? 'flex' : 'none';
+      }
+      
+      // Si está en vertical, no hacer nada más
+      if (!this.isLandscape) {
+        return;
+      }
+    }
+
     // Calcular tamaño del laberinto basado en el espacio disponible
     if (this.isMobile) {
       // En móvil, el laberinto va arriba y más pequeño
@@ -176,7 +191,8 @@ class BlockGame extends Phaser.Scene {
 
     // Posicionar elementos según el dispositivo
     if (this.isMobile) {
-      // Móvil: Laberinto arriba, Blockly abajo
+      // Móvil: Laberinto arriba, Blockly abajo (solo en horizontal)
+      this.blocklyArea.style.display = 'block';
       this.blocklyArea.style.bottom = '0';
       this.blocklyArea.style.left = '0';
       this.blocklyArea.style.width = '100%';
@@ -188,6 +204,7 @@ class BlockGame extends Phaser.Scene {
       this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
     } else {
       // PC: Blockly a la izquierda, laberinto a la derecha
+      this.blocklyArea.style.display = 'block';
       this.blocklyArea.style.top = '0';
       this.blocklyArea.style.left = '0';
       this.blocklyArea.style.width = '40%';
@@ -589,15 +606,18 @@ class BlockGame extends Phaser.Scene {
     if (this.add) {
       this.setupGameAreas();
       
-      // Si el personaje existe, actualizar su posición
-      if (this.character) {
+      // Si el personaje existe y estamos en la orientación correcta, actualizar su posición
+      if (this.character && (!this.isMobile || this.isLandscape)) {
         const currentGridX = Math.floor((this.character.x - this.gameArea.x) / this.cellSize);
         const currentGridY = Math.floor((this.character.y - this.gameArea.y) / this.cellSize);
         this.character.x = this.gameArea.x + (currentGridX * this.cellSize) + (this.cellSize / 2);
         this.character.y = this.gameArea.y + (currentGridY * this.cellSize) + (this.cellSize / 2);
       }
 
-      this.setupUI();
+      // Solo actualizar UI si estamos en la orientación correcta
+      if (!this.isMobile || this.isLandscape) {
+        this.setupUI();
+      }
     }
   }
 
@@ -684,109 +704,25 @@ class BlockGame extends Phaser.Scene {
   }
 
   executeCode() {
+    // No mostrar alerta, solo deshabilitar el botón mientras se ejecuta
+    if (this.runButton) {
+      this.runButton.disabled = true;
+    }
+
+    // Obtener y ejecutar el código
+    const code = Blockly.JavaScript.workspaceToCode(this.blocklyWorkspace);
+    
     try {
-      // Deshabilitar el botón mientras se ejecuta
-      if (this.runButton) {
-        this.runButton.disabled = true;
-      }
-
-      // Obtener el código JavaScript generado
-      const code = Blockly.JavaScript.workspaceToCode(this.blocklyWorkspace);
-      console.log('Código generado:', code);
-
-      // Envolver el código en una función async para poder usar await
-      const wrappedCode = `
-        async function runCode() {
-          try {
-            ${code}
-          } catch (error) {
-            console.error('Error en la ejecución:', error);
-          }
-        }
-        runCode();
-      `;
-
-      // Definir las funciones de movimiento en el contexto
-      const context = {
-        startExecution: () => {
-          console.log('Iniciando ejecución');
-          this.executionCompleted = false;
-          this.currentActionIndex = 0;
-          this.executeActionsSequentially();
-        },
-        moveForward: async () => {
-          const newX = this.character.x + this.cellSize;
-          if (this.canMoveTo(newX, this.character.y)) {
-            await this.tweenCharacter(newX, this.character.y);
-            return true;
-          }
-          return false;
-        },
-        moveBackward: async () => {
-          const newX = this.character.x - this.cellSize;
-          if (this.canMoveTo(newX, this.character.y)) {
-            await this.tweenCharacter(newX, this.character.y);
-            return true;
-          }
-          return false;
-        },
-        moveUp: async () => {
-          const newY = this.character.y - this.cellSize;
-          if (this.canMoveTo(this.character.x, newY)) {
-            await this.tweenCharacter(this.character.x, newY);
-            return true;
-          }
-          return false;
-        },
-        moveDown: async () => {
-          const newY = this.character.y + this.cellSize;
-          if (this.canMoveTo(this.character.x, newY)) {
-            await this.tweenCharacter(this.character.x, newY);
-            return true;
-          }
-          return false;
-        }
-      };
-
-      // Ejecutar el código con el contexto
-      const executeInContext = new Function(...Object.keys(context), wrappedCode);
-      executeInContext.bind(this)(...Object.values(context));
-
+      // Ejecutar el código
+      new Function(code)();
     } catch (error) {
       console.error('Error al ejecutar el código:', error);
-      this.showMessage('error', 'Error', 'Ocurrió un error al ejecutar el código.');
     } finally {
       // Habilitar el botón cuando termine
       if (this.runButton) {
         this.runButton.disabled = false;
       }
     }
-  }
-
-  executeActionsSequentially() {
-    if (this.executionCompleted) {
-      console.log("La ejecución ha sido detenida.");
-      return;
-    }
-
-    if (this.currentActionIndex >= this.actions.length) {
-      console.log("Ejecución completada.");
-      this.executionCompleted = true;
-      this.isExecuting = false;
-      if (this.runButton) {
-        this.runButton.disabled = false;
-        this.runButton.classList.remove('disabled');
-      }
-      this.showMessage("success", "¡Éxito!", "Programa ejecutado correctamente.");
-      return;
-    }
-
-    const action = this.actions[this.currentActionIndex];
-    console.log(`Ejecutando acción ${this.currentActionIndex + 1}/${this.actions.length}:`, action);
-
-    // Continuar con la siguiente acción
-    this.currentActionIndex++;
-    setTimeout(() => this.executeActionsSequentially(), 300);
   }
 
   getMovementDirection(fromX, fromY, toX, toY) {
