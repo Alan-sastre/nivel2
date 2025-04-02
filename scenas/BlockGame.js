@@ -154,18 +154,6 @@ class BlockGame extends Phaser.Scene {
     // Detectar orientación
     this.isLandscape = window.innerWidth > window.innerHeight;
     
-    // Si es móvil y está en vertical, mostrar mensaje y retornar
-    if (this.isMobile && !this.isLandscape) {
-      this.showMessage('info', 'Rotación', 'Por favor, gira tu dispositivo horizontalmente');
-      return;
-    }
-
-    // Limpiar mensaje de orientación si existe
-    const existingMessage = document.getElementById('game-message');
-    if (existingMessage && this.isMobile && this.isLandscape) {
-      existingMessage.remove();
-    }
-
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
@@ -586,7 +574,6 @@ class BlockGame extends Phaser.Scene {
     this.lastHeight = gameSize.height;
 
     // Detectar cambio de orientación en móviles
-    const wasLandscape = this.isLandscape;
     this.isLandscape = window.innerWidth > window.innerHeight;
 
     // Actualizar layout
@@ -834,76 +821,5 @@ class BlockGame extends Phaser.Scene {
     }
 
     this.scale.off('resize', this.handleResize, this);
-  }
-
-  showMessage(icon, title, text) {
-    // Solo mostrar mensajes de orientación
-    if (icon !== 'info') return;
-
-    // Eliminar mensaje anterior si existe
-    const existingMessage = document.getElementById('game-message');
-    if (existingMessage) {
-      existingMessage.remove();
-    }
-
-    // Crear contenedor del mensaje
-    const messageContainer = document.createElement('div');
-    messageContainer.id = 'game-message';
-    messageContainer.className = 'orientation-message';
-    messageContainer.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 30px;
-      border-radius: 15px;
-      text-align: center;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      backdrop-filter: blur(10px);
-      animation: fadeInOut 2s ease-in-out infinite;
-    `;
-
-    // Crear contenido del mensaje
-    const iconElement = document.createElement('div');
-    iconElement.innerHTML = '🔄';
-    iconElement.style.fontSize = '24px';
-    iconElement.style.marginBottom = '10px';
-
-    const titleElement = document.createElement('h3');
-    titleElement.textContent = title;
-    titleElement.style.margin = '10px 0';
-    titleElement.style.color = 'white';
-
-    const textElement = document.createElement('p');
-    textElement.textContent = text;
-    textElement.style.margin = '5px 0';
-    textElement.style.color = 'rgba(255, 255, 255, 0.9)';
-
-    // Añadir elementos al contenedor
-    messageContainer.appendChild(iconElement);
-    messageContainer.appendChild(titleElement);
-    messageContainer.appendChild(textElement);
-
-    // Añadir el mensaje al documento
-    document.body.appendChild(messageContainer);
-
-    // Añadir animación si no existe
-    if (!document.getElementById('orientation-message-style')) {
-      const style = document.createElement('style');
-      style.id = 'orientation-message-style';
-      style.textContent = `
-        @keyframes fadeInOut {
-          0% { opacity: 0.5; }
-          50% { opacity: 1; }
-          100% { opacity: 0.5; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
   }
 }
