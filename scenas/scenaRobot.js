@@ -325,13 +325,6 @@ if (typeof window.scenaRobot === 'undefined') {
         }
       ).setOrigin(0.5).setDepth(101);
 
-      this.tweens.add({
-        targets: victoryText,
-        scale: 1.1,
-        duration: 1000,
-        yoyo: true,
-        repeat: -1
-      });
 
       let count = 4;
       this.time.addEvent({
@@ -339,7 +332,7 @@ if (typeof window.scenaRobot === 'undefined') {
         callback: () => {
           count--;
           if (count <= 0) {
-            this.scene.start("BlockGame");
+            this.scene.start("scenalab");
           }
         },
         callbackScope: this,

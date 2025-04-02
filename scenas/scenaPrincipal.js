@@ -67,11 +67,11 @@ class scenaPrincipal extends Phaser.Scene {
     // Detener la música antes de cambiar de escena (opcional)
     this.sound.stopAll();
 
-    // Cambiar a la siguiente escena
-    this.scene.start("scenaBloques"); // Reemplaza con el nombre de tu siguiente escena
+
+    this.scene.start("scenaVideo"); 
   }
 
   update() {
-    // Aquí puedes añadir lógica de actualización si es necesario
+
   }
 }
