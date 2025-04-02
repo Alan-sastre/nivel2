@@ -8,13 +8,12 @@ class BlockGame extends Phaser.Scene {
     this.executionCompleted = true;
     this.executionTimer = null; 
     this.isMobile = false;
-    this.isLandscape = false;
     this.blocklyDiv = null;
     this.buttonContainer = null;
     this.statusPanel = null;
     this.lastWidth = 0;
     this.lastHeight = 0;
-    this.isMoving = false;
+    this.isMoving = false; // Agregar propiedad para detectar movimiento
     
     // Definir el laberinto con una sola solución
     this.maze = [
@@ -26,7 +25,10 @@ class BlockGame extends Phaser.Scene {
       [1,1, 1, 1, 2, 1, 1, 1]
     ];
     
-    this.cellSize = 55;
+    // Tamaño de cada celda del laberinto
+    this.cellSize = 55; // Tamaño intermedio entre 40 y 60
+    
+    // Posición inicial del personaje en el laberinto
     this.startCell = { row: 0, col: 0 };
   }
 
@@ -62,18 +64,20 @@ class BlockGame extends Phaser.Scene {
   }
 
   create() {
-    // Detectar si es móvil y configurar el layout
+    // Detectar si es móvil
     this.isMobile = !this.sys.game.device.os.desktop;
-    this.isLandscape = window.innerWidth > window.innerHeight;
-
-    // Configurar el layout inicial
-    this.setupLayout();
-
+    
     // Añadir imagen de fondo al escenario
-    const sceneBg = this.add.image(0, 0, 'scene-background');
-    sceneBg.setOrigin(0, 0);
-    sceneBg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
-    sceneBg.setDepth(-1);
+    const sceneBg = this.add.image(
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2,
+      'scene-background'
+    );
+    sceneBg.setDisplaySize(
+      this.cameras.main.width,
+      this.cameras.main.height
+    );
+    sceneBg.setDepth(-1); // Asegurar que el fondo esté detrás de todo
 
     // Configurar áreas del juego según el dispositivo
     this.setupGameAreas();
@@ -81,17 +85,11 @@ class BlockGame extends Phaser.Scene {
     // Configurar el personaje según el dispositivo
     this.setupCharacter();
 
+    // Resetear el juego para asegurar la posición inicial del personaje
+    this.resetGame();
+
     // Configurar UI responsiva
     this.setupUI();
-
-    // Configurar Blockly
-    this.setupBlockly();
-
-    // Escuchar cambios de tamaño y orientación
-    this.scale.on('resize', this.handleResize, this);
-    window.addEventListener('orientationchange', () => {
-      setTimeout(() => this.handleResize(this.scale.gameSize), 100);
-    });
 
     // Inicializar Blockly
     Blockly.JavaScript.STATEMENT_PREFIX = '';
@@ -124,8 +122,14 @@ class BlockGame extends Phaser.Scene {
       console.log('Error: El sistema de sonido no está disponible');
     }
 
+    // Configurar Blockly
+    this.setupBlockly();
+
     // Agregar estilos CSS para personalizaciones generales
     this.addCustomStyles();
+
+    // Escuchar cambios de tamaño de pantalla
+    this.scale.on('resize', this.handleResize, this);
 
     // Asegurar que el juego esté en la capa correcta
     this.children.setAll('depth', 1);
@@ -145,55 +149,23 @@ class BlockGame extends Phaser.Scene {
     this.cameras.main.setAntialias(true);
   }
 
-  setupLayout() {
-    // Limpiar el blocklyDiv existente si hay uno
-    if (this.blocklyDiv && this.blocklyDiv.parentNode) {
-      this.blocklyDiv.parentNode.removeChild(this.blocklyDiv);
-    }
-
-    // Crear el contenedor principal
-    const mainContainer = document.createElement('div');
-    mainContainer.id = 'gameContainer';
-    mainContainer.style.position = 'absolute';
-    mainContainer.style.width = '100%';
-    mainContainer.style.height = '100%';
-    mainContainer.style.display = 'flex';
-    mainContainer.style.flexDirection = this.isMobile ? 'column' : 'row';
-    document.body.appendChild(mainContainer);
-
-    // Crear el área de Blockly
-    this.blocklyDiv = document.createElement('div');
-    this.blocklyDiv.id = 'blocklyDiv';
-    this.blocklyDiv.style.position = 'relative';
-    
-    if (this.isMobile) {
-      // En móvil, Blockly va en la parte inferior
-      this.blocklyDiv.style.width = '100%';
-      this.blocklyDiv.style.height = '40%';
-      mainContainer.style.flexDirection = 'column-reverse';
-    } else {
-      // En PC, Blockly va a la izquierda
-      this.blocklyDiv.style.width = '40%';
-      this.blocklyDiv.style.height = '100%';
-    }
-    
-    mainContainer.appendChild(this.blocklyDiv);
-
-    // Crear el área del juego
-    const gameArea = document.createElement('div');
-    gameArea.id = 'gameArea';
-    gameArea.style.position = 'relative';
-    gameArea.style.flex = '1';
-    mainContainer.appendChild(gameArea);
-
-    // Mover el canvas de Phaser al área del juego
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      gameArea.appendChild(canvas);
-    }
-  }
-
   setupGameAreas() {
+    // Solo limpiar áreas si es la primera vez
+    if (!this.blocklyArea) {
+      // Crear el área para Blockly con ancho fijo
+      this.blocklyArea = document.createElement('div');
+      this.blocklyArea.id = 'blocklyDiv';
+      this.blocklyArea.style.position = 'absolute';
+      this.blocklyArea.style.left = '30px';
+      this.blocklyArea.style.top = '0';
+      this.blocklyArea.style.bottom = '0';
+      this.blocklyArea.style.width = '50%';
+      this.blocklyArea.style.height = '100%';
+      this.blocklyArea.style.minWidth = '400px'; // Ancho mínimo
+      this.blocklyArea.style.maxWidth = '600px'; // Ancho máximo
+      document.body.appendChild(this.blocklyArea);
+    }
+
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
@@ -201,32 +173,20 @@ class BlockGame extends Phaser.Scene {
     const mazeWidth = this.maze[0].length * this.cellSize;
     const mazeHeight = this.maze.length * this.cellSize;
 
-    // Ajustar el tamaño del laberinto según el dispositivo
-    if (this.isMobile) {
-      this.cellSize = Math.min(
-        45,
-        Math.min(
-          (width * 0.9) / this.maze[0].length,
-          (height * 0.5) / this.maze.length
-        )
-      );
-    }
+    // Obtener el ancho actual del área de Blockly
+    const blocklyWidth = this.blocklyArea.offsetWidth;
 
-    // Centrar el laberinto en el área de juego
-    const gameAreaX = (width - (this.maze[0].length * this.cellSize)) / 2;
-    const gameAreaY = this.isMobile ? 
-      height * 0.1 : // En móvil, más cerca de la parte superior
-      (height - (this.maze.length * this.cellSize)) / 2;
+    // Mover el área deBlockly a la izquierda
+    
+    // Ajustar el espacio restante para el laberinto
+    const remainingWidth = width - blocklyWidth - mazeWidth;
+    const gameAreaX = blocklyWidth + (remainingWidth * 5); // Ajustar el factor para mover a la izquierda
+    const gameAreaY = (height - mazeHeight) / 2;
 
     // Definir el área de juego
-    this.gameArea = new Phaser.Geom.Rectangle(
-      gameAreaX,
-      gameAreaY,
-      this.maze[0].length * this.cellSize,
-      this.maze.length * this.cellSize
-    );
+    this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
 
-    // Limpiar y recrear el laberinto
+    // Limpiar el grupo del laberinto si existe
     if (this.mazeGroup) {
       this.mazeGroup.clear(true, true);
       this.mazeGroup.destroy(true);
@@ -236,66 +196,43 @@ class BlockGame extends Phaser.Scene {
     this.createMaze();
   }
 
-  setupUI() {
-    // Crear contenedor de botones si no existe
-    if (!this.buttonContainer) {
-      this.buttonContainer = this.add.container(0, 0);
+  createMaze() {
+    // Crear grupo para el laberinto si no existe
+    if (!this.mazeGroup) {
+      this.mazeGroup = this.add.group();
     }
 
-    // Posicionar botones según el dispositivo
-    const buttonY = this.isMobile ?
-      this.cameras.main.height * 0.05 : // En móvil, en la parte superior
-      this.cameras.main.height - 50;    // En PC, en la parte inferior
-
-    // Limpiar botones existentes
-    this.buttonContainer.removeAll(true);
-
-    // Crear botón de ejecución
-    this.runButton = this.add.image(0, 0, 'button-bg')
-      .setInteractive()
-      .on('pointerdown', () => this.executeCode());
-    
-    const runText = this.add.text(0, 0, 'Ejecutar', {
-      font: '16px Arial',
-      fill: '#ffffff'
-    }).setOrigin(0.5);
-
-    this.buttonContainer.add([this.runButton, runText]);
-    this.buttonContainer.setPosition(
-      this.cameras.main.width - 100,
-      buttonY
+    // Crear el fondo del laberinto
+    const mazeBg = this.add.image(
+      this.gameArea.x,
+      this.gameArea.y,
+      'maze-background'
     );
-  }
+    mazeBg.setOrigin(0, 0);
+    mazeBg.setDisplaySize(this.gameArea.width, this.gameArea.height);
+    this.mazeGroup.add(mazeBg);
 
-  handleResize(gameSize) {
-    if (this.lastWidth === gameSize.width && this.lastHeight === gameSize.height) {
-      return;
-    }
+    // Dibujar el laberinto
+    for (let row = 0; row < this.maze.length; row++) {
+      for (let col = 0; col < this.maze[row].length; col++) {
+        const cellValue = this.maze[row][col];
+        const x = this.gameArea.x + (col * this.cellSize);
+        const y = this.gameArea.y + (row * this.cellSize);
 
-    this.lastWidth = gameSize.width;
-    this.lastHeight = gameSize.height;
-    this.isLandscape = window.innerWidth > window.innerHeight;
-
-    // Actualizar el layout
-    this.setupLayout();
-    this.setupGameAreas();
-    this.setupUI();
-
-    // Actualizar el workspace de Blockly
-    if (this.blocklyWorkspace) {
-      Blockly.svgResize(this.blocklyWorkspace);
-    }
-
-    // Reubicar el personaje si existe
-    if (this.character) {
-      const currentCell = {
-        row: Math.floor((this.character.y - this.gameArea.y) / this.cellSize),
-        col: Math.floor((this.character.x - this.gameArea.x) / this.cellSize)
-      };
-      this.character.setPosition(
-        this.gameArea.x + (currentCell.col * this.cellSize) + (this.cellSize / 2),
-        this.gameArea.y + (currentCell.row * this.cellSize) + (this.cellSize / 2)
-      );
+        if (cellValue === 1) {
+          // Pared
+          const wall = this.add.image(x, y, 'wall');
+          wall.setOrigin(0, 0);
+          wall.setDisplaySize(this.cellSize, this.cellSize);
+          this.mazeGroup.add(wall);
+        } else if (cellValue === 2) {
+          // Meta
+          const goal = this.add.image(x, y, 'goal');
+          goal.setOrigin(0, 0);
+          goal.setDisplaySize(this.cellSize, this.cellSize);
+          this.mazeGroup.add(goal);
+        }
+      }
     }
   }
 
@@ -336,8 +273,67 @@ class BlockGame extends Phaser.Scene {
     return { row: 0, col: 1 }; // Posición por defecto si no se encuentra
   }
 
+  setupUI() {
+    // Configurar botones
+    this.addStyledButtons();
+  }
+
+  addStyledButtons() {
+    // Eliminar contenedor de botones si ya existe
+    if (this.buttonContainer) {
+      this.buttonContainer.remove();
+    }
+
+    // Crear contenedor para botones
+    this.buttonContainer = document.createElement('div');
+    this.buttonContainer.id = 'button-container';
+    this.buttonContainer.style.position = 'absolute';
+    this.buttonContainer.style.display = 'flex';
+    this.buttonContainer.style.gap = this.isMobile ? '10px' : '15px';
+    this.buttonContainer.style.justifyContent = 'center';
+    this.buttonContainer.style.alignItems = 'center';
+    this.buttonContainer.style.zIndex = '1000';
+    
+    // Posicionamiento en la parte inferior para ambos dispositivos
+    this.buttonContainer.style.bottom = this.isMobile ? '70px' : '20px';
+    this.buttonContainer.style.left = '0';
+    this.buttonContainer.style.width = '100%';
+    this.buttonContainer.style.top = 'auto';
+    this.buttonContainer.style.padding = '0 10px';
+
+    document.body.appendChild(this.buttonContainer);
+    
+    // Crear botón de ejecución
+    this.runButton = document.createElement("button");
+    this.runButton.id = "runButton";
+    this.runButton.className = "game-button run-button";
+    this.runButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${this.isMobile ? '14' : '16'}" height="${this.isMobile ? '14' : '16'}" viewBox="0 0 24 24" fill="white" style="margin-right: 8px; vertical-align: middle;">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      Ejecutar
+    `;
+    this.buttonContainer.appendChild(this.runButton);
+
+    // Crear botón de reinicio
+    const resetButton = document.createElement("button");
+    resetButton.id = "resetButton";
+    resetButton.className = "game-button reset-button";
+    resetButton.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${this.isMobile ? '14' : '16'}" height="${this.isMobile ? '14' : '16'}" viewBox="0 0 24 24" fill="white" style="margin-right: 8px; vertical-align: middle;">
+        <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+      </svg>
+      Reiniciar
+    `;
+    this.buttonContainer.appendChild(resetButton);
+
+    // Añadir listeners
+    this.runButton.addEventListener("click", () => this.executeCode());
+    resetButton.addEventListener("click", () => this.resetGame());
+  }
+
   setupBlockly() {
-    if (!this.blocklyDiv) return;
+    if (!this.blocklyArea) return;
 
     // Crear el toolbox sin categorías
     this.toolbox = `
@@ -351,7 +347,7 @@ class BlockGame extends Phaser.Scene {
     `;
 
     // Configurar el workspace de Blockly
-    this.blocklyWorkspace = Blockly.inject(this.blocklyDiv.id, {
+    this.blocklyWorkspace = Blockly.inject(this.blocklyArea.id, {
       toolbox: this.toolbox,
       scrollbars: true,
       horizontalLayout: false,
@@ -541,43 +537,50 @@ class BlockGame extends Phaser.Scene {
     document.head.appendChild(styleElement);
   }
 
-  createMaze() {
-    // Crear grupo para el laberinto si no existe
-    if (!this.mazeGroup) {
-      this.mazeGroup = this.add.group();
+  handleResize(gameSize) {
+    const width = gameSize.width;
+    const height = gameSize.height;
+
+    // Mantener el área de Blockly con su ancho actual
+    if (this.blocklyArea) {
+      this.blocklyArea.style.height = height + 'px';
     }
 
-    // Crear el fondo del laberinto
-    const mazeBg = this.add.image(
-      this.gameArea.x,
-      this.gameArea.y,
-      'maze-background'
-    );
-    mazeBg.setOrigin(0, 0);
-    mazeBg.setDisplaySize(this.gameArea.width, this.gameArea.height);
-    this.mazeGroup.add(mazeBg);
+    // Obtener el ancho actual del área de Blockly
+    const blocklyWidth = this.blocklyArea ? this.blocklyArea.offsetWidth : 0;
 
-    // Dibujar el laberinto
-    for (let row = 0; row < this.maze.length; row++) {
-      for (let col = 0; col < this.maze[row].length; col++) {
-        const cellValue = this.maze[row][col];
-        const x = this.gameArea.x + (col * this.cellSize);
-        const y = this.gameArea.y + (row * this.cellSize);
+    // Recalcular dimensiones del laberinto
+    const mazeWidth = this.maze[0].length * this.cellSize;
+    const mazeHeight = this.maze.length * this.cellSize;
 
-        if (cellValue === 1) {
-          // Pared
-          const wall = this.add.image(x, y, 'wall');
-          wall.setOrigin(0, 0);
-          wall.setDisplaySize(this.cellSize, this.cellSize);
-          this.mazeGroup.add(wall);
-        } else if (cellValue === 2) {
-          // Meta
-          const goal = this.add.image(x, y, 'goal');
-          goal.setOrigin(0, 0);
-          goal.setDisplaySize(this.cellSize, this.cellSize);
-          this.mazeGroup.add(goal);
-        }
-      }
+    // Actualizar posición del laberinto
+    const remainingWidth = width - blocklyWidth - mazeWidth;
+    const gameAreaX = blocklyWidth + (remainingWidth * 0.3); // Ajustar el factor para mover a la izquierda
+    const gameAreaY = (height - mazeHeight) / 2;
+
+    // Actualizar el área de juego
+    this.gameArea.x = gameAreaX;
+    this.gameArea.y = gameAreaY;
+    this.gameArea.width = mazeWidth;
+    this.gameArea.height = mazeHeight;
+
+    // Actualizar posición del personaje
+    if (this.character) {
+      const currentGridX = Math.floor((this.character.x - this.gameArea.x) / this.cellSize);
+      const currentGridY = Math.floor((this.character.y - this.gameArea.y) / this.cellSize);
+      this.character.x = this.gameArea.x + (currentGridX * this.cellSize) + (this.cellSize / 2);
+      this.character.y = this.gameArea.y + (currentGridY * this.cellSize) + (this.cellSize / 2);
+    }
+
+    // Recrear el laberinto
+    if (this.mazeGroup) {
+      this.mazeGroup.clear(true, true);
+      this.createMaze();
+    }
+
+    // Actualizar el workspace de Blockly
+    if (this.blocklyWorkspace) {
+      Blockly.svgResize(this.blocklyWorkspace);
     }
   }
 
@@ -667,7 +670,7 @@ class BlockGame extends Phaser.Scene {
     try {
       // Deshabilitar el botón mientras se ejecuta
       if (this.runButton) {
-        this.runButton.setInteractive(false);
+        this.runButton.disabled = true;
       }
 
       // Obtener el código JavaScript generado
@@ -738,7 +741,7 @@ class BlockGame extends Phaser.Scene {
     } finally {
       // Habilitar el botón cuando termine
       if (this.runButton) {
-        this.runButton.setInteractive(true);
+        this.runButton.disabled = false;
       }
     }
   }
@@ -754,7 +757,8 @@ class BlockGame extends Phaser.Scene {
       this.executionCompleted = true;
       this.isExecuting = false;
       if (this.runButton) {
-        this.runButton.setInteractive(true);
+        this.runButton.disabled = false;
+        this.runButton.classList.remove('disabled');
       }
       this.showMessage("success", "¡Éxito!", "Programa ejecutado correctamente.");
       return;
