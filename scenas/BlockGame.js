@@ -138,7 +138,6 @@ class BlockGame extends Phaser.Scene {
       this.character.setDepth(2);
       
       // Mejorar la calidad de la imagen
-      this.character.setSmoothed(true); // Habilitar anti-aliasing
       this.character.setScale(0.25); // Ajustar escala para mejor calidad
       this.character.setPixelPerfect(false); // Deshabilitar pixel perfect para mejor interpolación
       this.character.setTint(0xFFFFFF); // Asegurar que no haya tintes que afecten la calidad
@@ -153,21 +152,6 @@ class BlockGame extends Phaser.Scene {
   setupGameAreas() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
-
-    // Detectar orientación (solo para móvil)
-    if (this.isMobile) {
-      this.isLandscape = window.innerWidth > window.innerHeight;
-      
-      // Si está en vertical, ocultar los botones
-      if (this.buttonContainer) {
-        this.buttonContainer.style.display = this.isLandscape ? 'flex' : 'none';
-      }
-      
-      // Si está en vertical, no hacer nada más
-      if (!this.isLandscape) {
-        return;
-      }
-    }
 
     // Calcular tamaño del laberinto basado en el espacio disponible
     if (this.isMobile) {
@@ -191,8 +175,7 @@ class BlockGame extends Phaser.Scene {
 
     // Posicionar elementos según el dispositivo
     if (this.isMobile) {
-      // Móvil: Laberinto arriba, Blockly abajo (solo en horizontal)
-      this.blocklyArea.style.display = 'block';
+      // Móvil: Laberinto arriba, Blockly abajo
       this.blocklyArea.style.bottom = '0';
       this.blocklyArea.style.left = '0';
       this.blocklyArea.style.width = '100%';
@@ -202,9 +185,14 @@ class BlockGame extends Phaser.Scene {
       const gameAreaX = (width - mazeWidth) / 2;
       const gameAreaY = height * 0.05;
       this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
+
+      // Controlar visibilidad de botones según orientación
+      if (this.buttonContainer) {
+        this.isLandscape = window.innerWidth > window.innerHeight;
+        this.buttonContainer.style.display = this.isLandscape ? 'flex' : 'none';
+      }
     } else {
       // PC: Blockly a la izquierda, laberinto a la derecha
-      this.blocklyArea.style.display = 'block';
       this.blocklyArea.style.top = '0';
       this.blocklyArea.style.left = '0';
       this.blocklyArea.style.width = '40%';
@@ -704,16 +692,14 @@ class BlockGame extends Phaser.Scene {
   }
 
   executeCode() {
-    // No mostrar alerta, solo deshabilitar el botón mientras se ejecuta
+    // Deshabilitar el botón mientras se ejecuta
     if (this.runButton) {
       this.runButton.disabled = true;
     }
 
-    // Obtener y ejecutar el código
-    const code = Blockly.JavaScript.workspaceToCode(this.blocklyWorkspace);
-    
     try {
-      // Ejecutar el código
+      // Obtener y ejecutar el código
+      const code = Blockly.JavaScript.workspaceToCode(this.blocklyWorkspace);
       new Function(code)();
     } catch (error) {
       console.error('Error al ejecutar el código:', error);
