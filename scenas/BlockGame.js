@@ -620,7 +620,7 @@ class BlockGame extends Phaser.Scene {
       // Cambiar a la siguiente escena después de 5 segundos
       setTimeout(() => {
         this.scene.start('scenaRobot');  
-      }, 1000);
+      }, 100);
       
       return true;
     }
