@@ -23,7 +23,7 @@ class BlockGame extends Phaser.Scene {
       [1,1, 0, 0, 0, 1, 1, 1],
       [1,1, 1, 0, 1, 2, 1, 1],
       [1,1, 0, 0, 0, 0, 1, 1],
-      [1,1, 1, 1, 0, 1, 1, 1]
+      [1,1, 1, 1, 1, 1, 1, 1]
     ];
     
     // Tamaño de cada celda del laberinto
@@ -574,6 +574,7 @@ class BlockGame extends Phaser.Scene {
     this.lastHeight = gameSize.height;
 
     // Detectar cambio de orientación en móviles
+    const wasLandscape = this.isLandscape;
     this.isLandscape = window.innerWidth > window.innerHeight;
 
     // Actualizar layout
