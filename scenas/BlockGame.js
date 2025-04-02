@@ -604,11 +604,6 @@ class BlockGame extends Phaser.Scene {
     if (!this.isMobile || (this.isMobile && this.isLandscape)) {
       this.setupUI();
     }
-
-    // Mostrar/ocultar mensaje de orientación en móvil
-    if (this.isMobile && !this.isLandscape) {
-      this.showMessage('info', 'Rotación', 'Por favor, gira tu dispositivo horizontalmente');
-    }
   }
 
   checkGoal() {
