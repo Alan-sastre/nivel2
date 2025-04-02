@@ -21,9 +21,9 @@ class BlockGame extends Phaser.Scene {
       [1,0, 0, 1, 1, 1, 1, 1],
       [1,1, 0, 1, 0, 0, 1, 1],
       [1,1, 0, 0, 0, 1, 1, 1],
-      [1,1, 1, 0, 1, 0, 1, 1],
+      [1,1, 1, 0, 1, 2, 1, 1],
       [1,1, 0, 0, 0, 0, 1, 1],
-      [1,1, 1, 1, 2, 1, 1, 1]
+      [1,1, 1, 1, 0, 1, 1, 1]
     ];
     
     // Tamaño de cada celda del laberinto
@@ -138,6 +138,7 @@ class BlockGame extends Phaser.Scene {
       this.character.setDepth(2);
       
       // Mejorar la calidad de la imagen
+      this.character.setSmoothed(true); // Habilitar anti-aliasing
       this.character.setScale(0.25); // Ajustar escala para mejor calidad
       this.character.setPixelPerfect(false); // Deshabilitar pixel perfect para mejor interpolación
       this.character.setTint(0xFFFFFF); // Asegurar que no haya tintes que afecten la calidad
@@ -150,6 +151,21 @@ class BlockGame extends Phaser.Scene {
   }
 
   setupGameAreas() {
+    // Detectar orientación
+    this.isLandscape = window.innerWidth > window.innerHeight;
+    
+    // Si es móvil y está en vertical, mostrar mensaje y retornar
+    if (this.isMobile && !this.isLandscape) {
+      this.showMessage('info', 'Rotación', 'Por favor, gira tu dispositivo horizontalmente');
+      return;
+    }
+
+    // Limpiar mensaje de orientación si existe
+    const existingMessage = document.getElementById('game-message');
+    if (existingMessage && this.isMobile && this.isLandscape) {
+      existingMessage.remove();
+    }
+
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
@@ -174,8 +190,8 @@ class BlockGame extends Phaser.Scene {
     }
 
     // Posicionar elementos según el dispositivo
-    if (this.isMobile) {
-      // Móvil: Laberinto arriba, Blockly abajo
+    if (this.isMobile && this.isLandscape) {
+      // Móvil horizontal: Laberinto arriba, Blockly abajo
       this.blocklyArea.style.bottom = '0';
       this.blocklyArea.style.left = '0';
       this.blocklyArea.style.width = '100%';
@@ -185,13 +201,7 @@ class BlockGame extends Phaser.Scene {
       const gameAreaX = (width - mazeWidth) / 2;
       const gameAreaY = height * 0.05;
       this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
-
-      // Controlar visibilidad de botones según orientación
-      if (this.buttonContainer) {
-        this.isLandscape = window.innerWidth > window.innerHeight;
-        this.buttonContainer.style.display = this.isLandscape ? 'flex' : 'none';
-      }
-    } else {
+    } else if (!this.isMobile) {
       // PC: Blockly a la izquierda, laberinto a la derecha
       this.blocklyArea.style.top = '0';
       this.blocklyArea.style.left = '0';
@@ -204,26 +214,26 @@ class BlockGame extends Phaser.Scene {
       this.gameArea = new Phaser.Geom.Rectangle(gameAreaX, gameAreaY, mazeWidth, mazeHeight);
     }
 
-    // Recrear el laberinto
-    if (this.mazeGroup) {
-      this.mazeGroup.clear(true, true);
-      this.mazeGroup.destroy(true);
-    }
-
-    // Asegurarse de que this.add está disponible antes de crear el grupo
-    if (this.add) {
-      this.mazeGroup = this.add.group();
+    // Recrear el laberinto si la orientación es correcta
+    if (!this.isMobile || (this.isMobile && this.isLandscape)) {
+      if (this.mazeGroup) {
+        this.mazeGroup.clear(true, true);
+        this.mazeGroup.destroy(true);
+      }
       this.createMaze();
     }
 
-    // Actualizar Blockly si existe
-    if (this.blocklyWorkspace) {
+    // Actualizar Blockly si existe y la orientación es correcta
+    if (this.blocklyWorkspace && (!this.isMobile || (this.isMobile && this.isLandscape))) {
       Blockly.svgResize(this.blocklyWorkspace);
     }
   }
 
   createMaze() {
-    if (!this.add || !this.mazeGroup) return;
+    // Crear grupo para el laberinto si no existe
+    if (!this.mazeGroup) {
+      this.mazeGroup = this.add.group();
+    }
 
     // Crear el fondo del laberinto
     const mazeBg = this.add.image(
@@ -496,7 +506,6 @@ class BlockGame extends Phaser.Scene {
         background-color: #f0f0f0;
         border-top: ${this.isMobile ? '2px solid #ccc' : 'none'};
         box-shadow: ${this.isMobile ? '0 -2px 5px rgba(0,0,0,0.1)' : '2px 0 5px rgba(0,0,0,0.1)'};
-        overflow-x: auto;
       }
 
       /* Estilos base para todos los dispositivos */
@@ -563,20 +572,6 @@ class BlockGame extends Phaser.Scene {
           padding: 5px 0;
         }
       }
-
-      /* Mensaje de orientación */
-      .orientation-message {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        z-index: 9999;
-      }
     `;
     document.head.appendChild(styleElement);
   }
@@ -590,22 +585,29 @@ class BlockGame extends Phaser.Scene {
     this.lastWidth = gameSize.width;
     this.lastHeight = gameSize.height;
 
-    // Solo actualizar si this.add está disponible
-    if (this.add) {
-      this.setupGameAreas();
-      
-      // Si el personaje existe y estamos en la orientación correcta, actualizar su posición
-      if (this.character && (!this.isMobile || this.isLandscape)) {
-        const currentGridX = Math.floor((this.character.x - this.gameArea.x) / this.cellSize);
-        const currentGridY = Math.floor((this.character.y - this.gameArea.y) / this.cellSize);
-        this.character.x = this.gameArea.x + (currentGridX * this.cellSize) + (this.cellSize / 2);
-        this.character.y = this.gameArea.y + (currentGridY * this.cellSize) + (this.cellSize / 2);
-      }
+    // Detectar cambio de orientación en móviles
+    const wasLandscape = this.isLandscape;
+    this.isLandscape = window.innerWidth > window.innerHeight;
 
-      // Solo actualizar UI si estamos en la orientación correcta
-      if (!this.isMobile || this.isLandscape) {
-        this.setupUI();
-      }
+    // Actualizar layout
+    this.setupGameAreas();
+
+    // Si el personaje existe y la orientación es correcta, actualizar su posición
+    if (this.character && (!this.isMobile || (this.isMobile && this.isLandscape))) {
+      const currentGridX = Math.floor((this.character.x - this.gameArea.x) / this.cellSize);
+      const currentGridY = Math.floor((this.character.y - this.gameArea.y) / this.cellSize);
+      this.character.x = this.gameArea.x + (currentGridX * this.cellSize) + (this.cellSize / 2);
+      this.character.y = this.gameArea.y + (currentGridY * this.cellSize) + (this.cellSize / 2);
+    }
+
+    // Actualizar UI solo si la orientación es correcta
+    if (!this.isMobile || (this.isMobile && this.isLandscape)) {
+      this.setupUI();
+    }
+
+    // Mostrar/ocultar mensaje de orientación en móvil
+    if (this.isMobile && !this.isLandscape) {
+      this.showMessage('info', 'Rotación', 'Por favor, gira tu dispositivo horizontalmente');
     }
   }
 
@@ -618,18 +620,7 @@ class BlockGame extends Phaser.Scene {
     
     // Verificar si llegó a la meta
     if (this.maze[gridY][gridX] === 2) {
-      // Mostrar mensaje de felicitación
-      Swal.fire({
-        title: '¡Felicitaciones!',
-        text: '¡Has completado el laberinto!',
-        icon: 'success',
-        confirmButtonText: 'Jugar de nuevo',
-        allowOutsideClick: false
-      }).then((result) => {
-        if (result.isConfirmed) {
-          this.resetGame();
-        }
-      });
+      console.log('¡Has completado el laberinto!');
       return true;
     }
     return false;
@@ -692,15 +683,74 @@ class BlockGame extends Phaser.Scene {
   }
 
   executeCode() {
-    // Deshabilitar el botón mientras se ejecuta
-    if (this.runButton) {
-      this.runButton.disabled = true;
-    }
-
     try {
-      // Obtener y ejecutar el código
+      // Deshabilitar el botón mientras se ejecuta
+      if (this.runButton) {
+        this.runButton.disabled = true;
+      }
+
+      // Obtener el código JavaScript generado
       const code = Blockly.JavaScript.workspaceToCode(this.blocklyWorkspace);
-      new Function(code)();
+      console.log('Código generado:', code);
+
+      // Envolver el código en una función async para poder usar await
+      const wrappedCode = `
+        async function runCode() {
+          try {
+            ${code}
+          } catch (error) {
+            console.error('Error en la ejecución:', error);
+          }
+        }
+        runCode();
+      `;
+
+      // Definir las funciones de movimiento en el contexto
+      const context = {
+        startExecution: () => {
+          console.log('Iniciando ejecución');
+          this.executionCompleted = false;
+          this.currentActionIndex = 0;
+          this.executeActionsSequentially();
+        },
+        moveForward: async () => {
+          const newX = this.character.x + this.cellSize;
+          if (this.canMoveTo(newX, this.character.y)) {
+            await this.tweenCharacter(newX, this.character.y);
+            return true;
+          }
+          return false;
+        },
+        moveBackward: async () => {
+          const newX = this.character.x - this.cellSize;
+          if (this.canMoveTo(newX, this.character.y)) {
+            await this.tweenCharacter(newX, this.character.y);
+            return true;
+          }
+          return false;
+        },
+        moveUp: async () => {
+          const newY = this.character.y - this.cellSize;
+          if (this.canMoveTo(this.character.x, newY)) {
+            await this.tweenCharacter(this.character.x, newY);
+            return true;
+          }
+          return false;
+        },
+        moveDown: async () => {
+          const newY = this.character.y + this.cellSize;
+          if (this.canMoveTo(this.character.x, newY)) {
+            await this.tweenCharacter(this.character.x, newY);
+            return true;
+          }
+          return false;
+        }
+      };
+
+      // Ejecutar el código con el contexto
+      const executeInContext = new Function(...Object.keys(context), wrappedCode);
+      executeInContext.bind(this)(...Object.values(context));
+
     } catch (error) {
       console.error('Error al ejecutar el código:', error);
     } finally {
@@ -709,6 +759,31 @@ class BlockGame extends Phaser.Scene {
         this.runButton.disabled = false;
       }
     }
+  }
+
+  executeActionsSequentially() {
+    if (this.executionCompleted) {
+      console.log("La ejecución ha sido detenida.");
+      return;
+    }
+
+    if (this.currentActionIndex >= this.actions.length) {
+      console.log("Ejecución completada.");
+      this.executionCompleted = true;
+      this.isExecuting = false;
+      if (this.runButton) {
+        this.runButton.disabled = false;
+        this.runButton.classList.remove('disabled');
+      }
+      return;
+    }
+
+    const action = this.actions[this.currentActionIndex];
+    console.log(`Ejecutando acción ${this.currentActionIndex + 1}/${this.actions.length}:`, action);
+
+    // Continuar con la siguiente acción
+    this.currentActionIndex++;
+    setTimeout(() => this.executeActionsSequentially(), 300);
   }
 
   getMovementDirection(fromX, fromY, toX, toY) {
@@ -731,125 +806,6 @@ class BlockGame extends Phaser.Scene {
 
     // Verificar si la celda es transitable (0 = camino, 2 = meta)
     return this.maze[gridY][gridX] === 0 || this.maze[gridY][gridX] === 2;
-  }
-
-  showMessage(icon, title, text) {
-    // Eliminar mensaje anterior si existe
-    const existingMessage = document.getElementById('game-message');
-    if (existingMessage) {
-      existingMessage.remove();
-    }
-
-    // Crear contenedor del mensaje
-    const messageContainer = document.createElement('div');
-    messageContainer.id = 'game-message';
-    messageContainer.className = icon === 'info' ? 'orientation-message' : 'game-message';
-
-    // Crear contenido del mensaje
-    const iconElement = document.createElement('div');
-    iconElement.className = 'message-icon';
-    iconElement.innerHTML = this.getMessageIcon(icon);
-
-    const titleElement = document.createElement('h3');
-    titleElement.textContent = title;
-    titleElement.style.margin = '10px 0';
-    titleElement.style.color = 'white';
-
-    const textElement = document.createElement('p');
-    textElement.textContent = text;
-    textElement.style.margin = '5px 0';
-    textElement.style.color = 'rgba(255, 255, 255, 0.9)';
-
-    // Añadir elementos al contenedor
-    messageContainer.appendChild(iconElement);
-    messageContainer.appendChild(titleElement);
-    messageContainer.appendChild(textElement);
-
-    // Añadir estilos específicos según el tipo de mensaje
-    if (icon === 'info') {
-      // Mensaje de orientación
-      messageContainer.style.animation = 'fadeInOut 2s ease-in-out infinite';
-    } else {
-      // Mensaje normal (éxito, error, etc.)
-      setTimeout(() => {
-        messageContainer.style.opacity = '0';
-        setTimeout(() => messageContainer.remove(), 500);
-      }, 2000);
-    }
-
-    // Añadir el mensaje al documento
-    document.body.appendChild(messageContainer);
-
-    // Añadir estilos si no existen
-    if (!document.getElementById('message-styles')) {
-      const style = document.createElement('style');
-      style.id = 'message-styles';
-      style.textContent = `
-        .game-message {
-          position: fixed;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(0, 0, 0, 0.8);
-          color: white;
-          padding: 15px 25px;
-          border-radius: 10px;
-          text-align: center;
-          z-index: 9999;
-          transition: opacity 0.5s ease;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          backdrop-filter: blur(5px);
-        }
-
-        .orientation-message {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: rgba(0, 0, 0, 0.9);
-          color: white;
-          padding: 30px;
-          border-radius: 15px;
-          text-align: center;
-          z-index: 9999;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          backdrop-filter: blur(10px);
-        }
-
-        .message-icon {
-          font-size: 24px;
-          margin-bottom: 10px;
-        }
-
-        @keyframes fadeInOut {
-          0% { opacity: 0.5; }
-          50% { opacity: 1; }
-          100% { opacity: 0.5; }
-        }
-
-        @media (max-width: 768px) {
-          .game-message {
-            width: 90%;
-            padding: 10px 15px;
-          }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }
-
-  getMessageIcon(icon) {
-    const icons = {
-      success: '✅',
-      error: '❌',
-      info: '🔄',
-      warning: '⚠️'
-    };
-    return icons[icon] || '💡';
   }
 
   shutdown() {
@@ -883,5 +839,76 @@ class BlockGame extends Phaser.Scene {
     }
 
     this.scale.off('resize', this.handleResize, this);
+  }
+
+  showMessage(icon, title, text) {
+    // Solo mostrar mensajes de orientación
+    if (icon !== 'info') return;
+
+    // Eliminar mensaje anterior si existe
+    const existingMessage = document.getElementById('game-message');
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+
+    // Crear contenedor del mensaje
+    const messageContainer = document.createElement('div');
+    messageContainer.id = 'game-message';
+    messageContainer.className = 'orientation-message';
+    messageContainer.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      backdrop-filter: blur(10px);
+      animation: fadeInOut 2s ease-in-out infinite;
+    `;
+
+    // Crear contenido del mensaje
+    const iconElement = document.createElement('div');
+    iconElement.innerHTML = '🔄';
+    iconElement.style.fontSize = '24px';
+    iconElement.style.marginBottom = '10px';
+
+    const titleElement = document.createElement('h3');
+    titleElement.textContent = title;
+    titleElement.style.margin = '10px 0';
+    titleElement.style.color = 'white';
+
+    const textElement = document.createElement('p');
+    textElement.textContent = text;
+    textElement.style.margin = '5px 0';
+    textElement.style.color = 'rgba(255, 255, 255, 0.9)';
+
+    // Añadir elementos al contenedor
+    messageContainer.appendChild(iconElement);
+    messageContainer.appendChild(titleElement);
+    messageContainer.appendChild(textElement);
+
+    // Añadir el mensaje al documento
+    document.body.appendChild(messageContainer);
+
+    // Añadir animación si no existe
+    if (!document.getElementById('orientation-message-style')) {
+      const style = document.createElement('style');
+      style.id = 'orientation-message-style';
+      style.textContent = `
+        @keyframes fadeInOut {
+          0% { opacity: 0.5; }
+          50% { opacity: 1; }
+          100% { opacity: 0.5; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }
 }
