@@ -60,7 +60,7 @@ class scenaVideo extends Phaser.Scene {
 
 
         video.on("complete", () => {
-        this.scene.start("scenaRobot");
+        this.scene.start("scenaDialogo");
         });
 
 
